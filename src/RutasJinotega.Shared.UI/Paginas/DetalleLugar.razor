@@ -1,0 +1,72 @@
+@page "/lugar/{Id:int}"
+
+<div class="pantalla pantalla-detalle">
+    <button type="button" class="atras glass" aria-label="Volver" @onclick="Volver">‹</button>
+
+    @if (_cargando)
+    {
+        <GlassCard Clase="estado"><p>Cargando…</p></GlassCard>
+    }
+    else if (_error is not null)
+    {
+        <GlassCard Clase="estado error">
+            <p>@_error</p>
+            <button type="button" class="btn sec" @onclick="CargarAsync">Reintentar</button>
+        </GlassCard>
+    }
+    else if (_lugar is not null)
+    {
+        <div class="hero" aria-hidden="true">@_lugar.IconoPrincipal</div>
+
+        <section class="detalle glass">
+            <h1>@_lugar.Nombre</h1>
+            <p class="meta">
+                <Estrellas Valor="_lugar.PromedioCalificacion" />
+                @_lugar.TotalResenas reseñas · @_lugar.Municipio
+            </p>
+
+            <div class="etiquetas">
+                @foreach (var categoria in _lugar.Categorias)
+                {
+                    <span class="etiqueta">@categoria.Icono @categoria.Nombre</span>
+                }
+                @if (_lugar.EsPocoConocido)
+                {
+                    <span class="etiqueta destacada">Poco conocido</span>
+                }
+            </div>
+
+            <p class="descripcion">@_lugar.Descripcion</p>
+
+            @if (!string.IsNullOrWhiteSpace(_lugar.Historia))
+            {
+                <section class="historia" aria-labelledby="titulo-historia">
+                    <h2 id="titulo-historia">Historia</h2>
+                    <p>@_lugar.Historia</p>
+                </section>
+            }
+
+            <dl class="datos">
+                <dt>Acceso</dt>
+                <dd>@_lugar.Dificultad</dd>
+                @if (!string.IsNullOrWhiteSpace(_lugar.Horario))
+                {
+                    <dt>Horario</dt>
+                    <dd>@_lugar.Horario</dd>
+                }
+                @if (!string.IsNullOrWhiteSpace(_lugar.Direccion))
+                {
+                    <dt>Dirección</dt>
+                    <dd>@_lugar.Direccion</dd>
+                }
+            </dl>
+
+            <a class="btn primario" href="@UrlComoLlegar" target="_blank" rel="noopener">Cómo llegar</a>
+        </section>
+
+        <GlassCard Clase="resenas-vacio">
+            <h2>Reseñas</h2>
+            <p>Pronto podrás compartir tu experiencia y leer la de otros visitantes.</p>
+        </GlassCard>
+    }
+</div>

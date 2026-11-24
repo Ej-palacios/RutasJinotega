@@ -1,0 +1,14 @@
+bin/
+obj/
+.vs/
+.idea/
+.opencode/
+.kombai/
+*.user
+*.suo
+*.log
+*.zip
+publish/
+TestResults/
+.DS_Store
+Thumbs.db

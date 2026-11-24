@@ -1,0 +1,58 @@
+@using System.Globalization
+
+<GlassCard Clase="hoja">
+    <div class="hoja-asa"></div>
+
+    <h2 class="hoja-titulo">@Item.Lugar.Nombre</h2>
+    <p class="meta">
+        <Estrellas Valor="Item.Lugar.PromedioCalificacion" />
+        @Meta
+    </p>
+
+    @if (Item.Lugar.EsPocoConocido)
+    {
+        <span class="etiqueta">Poco conocido</span>
+    }
+
+    <div class="fila">
+        <a class="btn primario" href="@UrlComoLlegar" target="_blank" rel="noopener">Ir con GPS</a>
+        <button type="button" class="btn sec" @onclick="AlVerDetalle">Ver detalle</button>
+    </div>
+</GlassCard>
+
+@code {
+    [Parameter, EditorRequired] public ItemLugar Item { get; set; } = default!;
+
+    [Parameter] public EventCallback AlVerDetalle { get; set; }
+
+    private string Meta
+    {
+        get
+        {
+            var promedio = Item.Lugar.PromedioCalificacion.ToString("0.0", CultureInfo.InvariantCulture);
+            var partes = new List<string>
+            {
+                promedio,
+                $"{Item.Lugar.TotalResenas} reseñas",
+                Item.Lugar.Municipio
+            };
+
+            if (Item.DistanciaKm is { } km)
+            {
+                partes.Add($"{km.ToString("0.#", CultureInfo.InvariantCulture)} km");
+            }
+
+            return string.Join(" · ", partes);
+        }
+    }
+
+    private string UrlComoLlegar
+    {
+        get
+        {
+            var lat = Item.Lugar.Latitud.ToString("R", CultureInfo.InvariantCulture);
+            var lon = Item.Lugar.Longitud.ToString("R", CultureInfo.InvariantCulture);
+            return $"https://www.google.com/maps/dir/?api=1&destination={lat},{lon}";
+        }
+    }
+}

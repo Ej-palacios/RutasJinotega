@@ -1,0 +1,51 @@
+@page "/"
+
+<div class="pantalla pantalla-mapa">
+    <h1 class="solo-lectores">Explorar Jinotega</h1>
+
+    <MapaLugares Items="_items" Seleccionado="_seleccionado" AlSeleccionar="Seleccionar" />
+
+    <header class="barra-superior">
+        <GlassCard Clase="buscador">
+            <span aria-hidden="true">🔍</span>
+            <input type="search"
+                   placeholder="Buscar lugar en Jinotega"
+                   aria-label="Buscar lugar"
+                   @bind="Texto"
+                   @bind:event="onchange"
+                   @bind:after="CargarAsync" />
+        </GlassCard>
+
+        <div class="chips">
+            <ChipCategoria Texto="Todo" Activo="@(CategoriaId is null)" AlClic="() => FiltrarCategoriaAsync(null)" />
+            @foreach (var categoria in _categorias)
+            {
+                var id = categoria.Id;
+                <ChipCategoria Texto="@($"{categoria.Icono} {categoria.Nombre}")"
+                               Activo="@(CategoriaId == id)"
+                               AlClic="() => FiltrarCategoriaAsync(id)" />
+            }
+        </div>
+    </header>
+
+    @if (_cargando)
+    {
+        <GlassCard Clase="estado"><p>Cargando lugares…</p></GlassCard>
+    }
+    else if (_error is not null)
+    {
+        <GlassCard Clase="estado error">
+            <p>@_error</p>
+            <button type="button" class="btn sec" @onclick="CargarAsync">Reintentar</button>
+        </GlassCard>
+    }
+    else if (_items.Count == 0)
+    {
+        <GlassCard Clase="estado"><p>No encontramos lugares con ese filtro.</p></GlassCard>
+    }
+
+    @if (_seleccionado is not null)
+    {
+        <HojaLugar Item="_seleccionado" AlVerDetalle="() => VerDetalle(_seleccionado)" />
+    }
+</div>

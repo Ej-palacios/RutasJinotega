@@ -1,0 +1,14 @@
+<span class="estrellas" role="img" aria-label="@Etiqueta">@Texto</span>
+
+@code {
+    private const int Maximo = 5;
+
+    [Parameter] public double Valor { get; set; }
+
+    private int Llenas => (int)Math.Round(Math.Clamp(Valor, 0, Maximo), MidpointRounding.AwayFromZero);
+
+    private string Texto => new string('★', Llenas) + new string('☆', Maximo - Llenas);
+
+    private string Etiqueta =>
+        $"{Valor.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)} de {Maximo} estrellas";
+}

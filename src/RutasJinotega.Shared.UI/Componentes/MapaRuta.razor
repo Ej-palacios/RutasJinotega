@@ -1,0 +1,48 @@
+@using RutasJinotega.Application.Rutas
+@using RutasJinotega.Shared.UI.Modelos
+
+<MapaCalles Puntos="_puntos"
+            Linea="_linea"
+            SeleccionadoId="Seleccionada?.Lugar.Id"
+            AlSeleccionar="SeleccionarAsync"
+            Clase="mapa-ruta"
+            EtiquetaAria="Mapa de la ruta turística"
+            Zoom="15" />
+
+@code {
+    private IReadOnlyList<PuntoMapa> _puntos = [];
+    private IReadOnlyList<CoordenadaMapa> _linea = [];
+
+    [Parameter] public IReadOnlyList<RutaParadaDto> Paradas { get; set; } = [];
+
+    [Parameter] public RutaParadaDto? Seleccionada { get; set; }
+
+    [Parameter] public EventCallback<RutaParadaDto> AlSeleccionar { get; set; }
+
+    protected override void OnParametersSet()
+    {
+        var ordenadas = Paradas.OrderBy(p => p.Orden).ToList();
+
+        _puntos = ordenadas
+            .Select(p => new PuntoMapa(
+                p.Lugar.Id,
+                p.Lugar.Latitud,
+                p.Lugar.Longitud,
+                p.Lugar.IconoPrincipal,
+                $"{p.Orden}. {p.Lugar.Nombre}"))
+            .ToList();
+
+        _linea = ordenadas
+            .Select(p => new CoordenadaMapa(p.Lugar.Latitud, p.Lugar.Longitud))
+            .ToList();
+    }
+
+    private async Task SeleccionarAsync(int id)
+    {
+        var parada = Paradas.FirstOrDefault(p => p.Lugar.Id == id);
+        if (parada is not null)
+        {
+            await AlSeleccionar.InvokeAsync(parada);
+        }
+    }
+}

@@ -1,0 +1,255 @@
+@using System.Globalization
+@using Microsoft.JSInterop
+@using RutasJinotega.Shared.UI.Modelos
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+
+@* Mapa de calles real (OpenStreetMap + Leaflet). Si el navegador no puede cargarlo,
+   cae a un esquema local con los mismos puntos para no romper la experiencia. *@
+
+@if (_sinMapa)
+{
+    <div class="mapa mapa-esquematico @Clase" role="application" aria-label="@EtiquetaAria">
+        @if (MostrarLinea && _pines.Count > 1)
+        {
+            <svg class="ruta-linea" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+                <polyline points="@_puntosSvg" fill="none" stroke="currentColor" stroke-width="0.9"
+                          stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="2 2" />
+            </svg>
+        }
+
+        @foreach (var pin in _pines)
+        {
+            <button type="button"
+                    class="pin @(pin.Activo ? "activo" : string.Empty)"
+                    style="@pin.Estilo"
+                    aria-label="@pin.Punto.Titulo"
+                    @onclick="() => SeleccionarAsync(pin.Punto.Id)">
+                <span>@pin.Punto.Icono</span>
+            </button>
+        }
+    </div>
+}
+else
+{
+    <div class="mapa-calles-contenedor @Clase">
+        <div class="mapa-calles" @ref="_contenedor" role="application" aria-label="@EtiquetaAria"></div>
+    </div>
+}
+
+@code {
+    private const double MargenHorizontal = 12;
+    private const double AnchoUtil = 76;
+    private const double MargenSuperior = 36;
+    private const double AltoUtil = 42;
+
+    private IJSObjectReference? _modulo;
+    private DotNetObjectReference<MapaCalles>? _referencia;
+    private ElementReference _contenedor;
+    private bool _mapaCreado;
+    private bool _sinMapa;
+    private bool _enfocarPendiente;
+    private int? _seleccionAnterior;
+    private IReadOnlyList<Pin> _pines = [];
+    private string _puntosSvg = string.Empty;
+
+    [Parameter] public IReadOnlyList<PuntoMapa> Puntos { get; set; } = [];
+
+    [Parameter] public IReadOnlyList<CoordenadaMapa> Linea { get; set; } = [];
+
+    [Parameter] public int? SeleccionadoId { get; set; }
+
+    [Parameter] public EventCallback<int> AlSeleccionar { get; set; }
+
+    [Parameter] public string Clase { get; set; } = string.Empty;
+
+    [Parameter] public string EtiquetaAria { get; set; } = "Mapa de lugares";
+
+    [Parameter] public int Zoom { get; set; } = 15;
+
+    [Parameter] public bool MostrarLinea { get; set; } = true;
+
+    private sealed record Pin(PuntoMapa Punto, string Estilo, bool Activo);
+
+    protected override void OnParametersSet()
+    {
+        CalcularRespaldo();
+
+        if (SeleccionadoId != _seleccionAnterior)
+        {
+            _seleccionAnterior = SeleccionadoId;
+            _enfocarPendiente = _mapaCreado && SeleccionadoId is not null;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_sinMapa)
+        {
+            return;
+        }
+
+        if (!_mapaCreado)
+        {
+            await CrearMapaAsync();
+            return;
+        }
+
+        await ActualizarMapaAsync();
+
+        if (_enfocarPendiente)
+        {
+            _enfocarPendiente = false;
+            await EnfocarSeleccionadoAsync();
+        }
+    }
+
+    [JSInvokable]
+    public Task Seleccionar(int id) => AlSeleccionar.InvokeAsync(id);
+
+    private async Task CrearMapaAsync()
+    {
+        try
+        {
+            _modulo = await JS.InvokeAsync<IJSObjectReference>(
+                "import", "./_content/RutasJinotega.Shared.UI/js/mapa-calles.js");
+            _referencia = DotNetObjectReference.Create(this);
+
+            await _modulo.InvokeVoidAsync("crear", _contenedor, Opciones(), _referencia);
+            _mapaCreado = true;
+        }
+        catch (Exception)
+        {
+            // Sin JS o sin conexión: el esquema local sigue siendo utilizable.
+            _sinMapa = true;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ActualizarMapaAsync()
+    {
+        if (_modulo is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await _modulo.InvokeVoidAsync("actualizar", _contenedor, Opciones(), _referencia);
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (Exception)
+        {
+            _sinMapa = true;
+            StateHasChanged();
+        }
+    }
+
+    private async Task EnfocarSeleccionadoAsync()
+    {
+        if (_modulo is null || SeleccionadoId is null)
+        {
+            return;
+        }
+
+        var punto = Puntos.FirstOrDefault(p => p.Id == SeleccionadoId);
+        if (punto is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await _modulo.InvokeVoidAsync("enfocar", _contenedor, punto.Latitud, punto.Longitud, 16);
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (Exception)
+        {
+        }
+    }
+
+    private async Task SeleccionarAsync(int id) => await AlSeleccionar.InvokeAsync(id);
+
+    private object Opciones() => new
+    {
+        puntos = Puntos.Select(p => new
+        {
+            id = p.Id,
+            lat = p.Latitud,
+            lon = p.Longitud,
+            icono = p.Icono,
+            titulo = p.Titulo,
+            activo = p.Id == SeleccionadoId
+        }),
+        linea = Linea.Select(c => new { lat = c.Latitud, lon = c.Longitud }),
+        centro = new { lat = 13.091, lon = -86.0 },
+        zoom = Zoom,
+        zoomMaximo = 16,
+        metodoSeleccion = nameof(Seleccionar)
+    };
+
+    private void CalcularRespaldo()
+    {
+        if (Puntos.Count == 0)
+        {
+            _pines = [];
+            _puntosSvg = string.Empty;
+            return;
+        }
+
+        var minLat = Puntos.Min(p => p.Latitud);
+        var maxLat = Puntos.Max(p => p.Latitud);
+        var minLon = Puntos.Min(p => p.Longitud);
+        var maxLon = Puntos.Max(p => p.Longitud);
+        var rangoLat = Math.Max(maxLat - minLat, 0.0001);
+        var rangoLon = Math.Max(maxLon - minLon, 0.0001);
+
+        _pines = Puntos.Select(punto =>
+        {
+            var x = MargenHorizontal + (punto.Longitud - minLon) / rangoLon * AnchoUtil;
+            var y = MargenSuperior + (maxLat - punto.Latitud) / rangoLat * AltoUtil;
+
+            return new Pin(
+                punto,
+                $"left:{Formatear(x)}%;top:{Formatear(y)}%",
+                punto.Id == SeleccionadoId);
+        }).ToList();
+
+        _puntosSvg = string.Join(" ", _pines.Select(p =>
+        {
+            var x = MargenHorizontal + (p.Punto.Longitud - minLon) / rangoLon * AnchoUtil;
+            var y = MargenSuperior + (maxLat - p.Punto.Latitud) / rangoLat * AltoUtil;
+            return $"{Formatear(x)},{Formatear(y)}";
+        }));
+    }
+
+    private static string Formatear(double valor) => valor.ToString("0.##", CultureInfo.InvariantCulture);
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_modulo is not null)
+        {
+            try
+            {
+                if (_mapaCreado)
+                {
+                    await _modulo.InvokeVoidAsync("destruir", _contenedor);
+                }
+            }
+            catch (JSDisconnectedException)
+            {
+            }
+            catch (Exception)
+            {
+            }
+
+            await _modulo.DisposeAsync();
+        }
+
+        _referencia?.Dispose();
+    }
+}

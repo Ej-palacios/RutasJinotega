@@ -1,0 +1,18 @@
+# SQL Server local para desarrollo (alternativa a LocalDB, útil en Linux/macOS).
+# Uso:  docker compose up -d
+# Luego ejecuta la API con:
+#   ConnectionStrings__RutasJinotega="Server=localhost,1433;Database=RutasJinotega;User Id=sa;Password=Dev_Passw0rd!;TrustServerCertificate=True"
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: rutasjinotega-sql
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "Dev_Passw0rd!"
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqldata:/var/opt/mssql
+
+volumes:
+  sqldata:

@@ -1,0 +1,67 @@
+@page "/rutas"
+
+<div class="pantalla pantalla-ruta">
+    <div class="mapa-ruta-contenedor">
+        <MapaRuta Paradas="Paradas" Seleccionada="_seleccionada" AlSeleccionar="Seleccionar" />
+
+        <header class="barra-superior">
+            <GlassCard Clase="buscador ruta-encabezado">
+                <span aria-hidden="true">🗺️</span>
+                <div>
+                    <strong>@(_ruta?.Nombre ?? "Rutas de San Rafael")</strong>
+                    <small>@(_ruta?.Municipio ?? "San Rafael del Norte")</small>
+                </div>
+            </GlassCard>
+        </header>
+    </div>
+
+    <div class="ruta-contenido">
+        @if (_cargando)
+        {
+            <GlassCard Clase="estado"><p>Cargando ruta…</p></GlassCard>
+        }
+        else if (_error is not null)
+        {
+            <GlassCard Clase="estado error">
+                <p>@_error</p>
+                <button type="button" class="btn sec" @onclick="CargarAsync">Reintentar</button>
+            </GlassCard>
+        }
+        else if (_ruta is not null)
+        {
+            <section class="ruta-resumen glass">
+                <h1>@_ruta.Nombre</h1>
+                <p>@_ruta.Descripcion</p>
+                <p class="meta">
+                    @_ruta.DistanciaTotalKm km · @_ruta.DuracionTotalMin min · @_ruta.Paradas.Count paradas
+                </p>
+                <a class="btn primario" href="@UrlIniciarRuta" target="_blank" rel="noopener">Iniciar ruta</a>
+            </section>
+
+            <section class="ruta-paradas" aria-label="Paradas de la ruta">
+                @foreach (var parada in _ruta.Paradas)
+                {
+                    <button type="button"
+                            class="parada glass @(EsSeleccionada(parada) ? "activa" : string.Empty)"
+                            @onclick="() => Seleccionar(parada)">
+                        <span class="parada-orden">@parada.Orden</span>
+                        <span class="parada-icono" aria-hidden="true">@parada.Lugar.IconoPrincipal</span>
+                        <span class="parada-texto">
+                            <strong>@parada.Lugar.Nombre</strong>
+                            <small>@parada.Lugar.Municipio · @parada.DistanciaAcumuladaKm km</small>
+                            @if (!string.IsNullOrWhiteSpace(parada.Nota))
+                            {
+                                <em>@parada.Nota</em>
+                            }
+                        </span>
+                    </button>
+                }
+            </section>
+        }
+    </div>
+
+    @if (_seleccionada is not null)
+    {
+        <HojaLugar Item="ItemSeleccionado" AlVerDetalle="VerDetalle" />
+    }
+</div>

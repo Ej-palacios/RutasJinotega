@@ -1,0 +1,14 @@
+<button type="button"
+        class="chip @(Activo ? "activo" : string.Empty)"
+        aria-pressed="@(Activo ? "true" : "false")"
+        @onclick="AlClic">
+    @Texto
+</button>
+
+@code {
+    [Parameter, EditorRequired] public string Texto { get; set; } = string.Empty;
+
+    [Parameter] public bool Activo { get; set; }
+
+    [Parameter] public EventCallback AlClic { get; set; }
+}
